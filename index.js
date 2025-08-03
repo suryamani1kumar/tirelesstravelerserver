@@ -22,13 +22,13 @@ app.use(
 );
 
 // Routes
+app.use("/api", userLogin);
+
+app.use("/paypal", paypalRoutes);
+
 app.use("/", (req, res) => {
   res.send(`<h1>Hello World</h1>`);
 });
-
-app.use("/", userLogin);
-
-app.use("/paypal", paypalRoutes);
 
 // Start server
 app.listen(PORT, () => {
