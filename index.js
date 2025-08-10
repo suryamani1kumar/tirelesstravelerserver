@@ -1,9 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-import paypalRoutes from "./routes/paypal.js";
 import userLogin from "./routes/login.js";
 import cors from "cors";
+import { createOrder } from "./controller/paypal.js";
 
 // Load env variables
 dotenv.config();
@@ -24,10 +24,20 @@ app.use(
 // Routes
 app.use("/api", userLogin);
 
-app.use("/paypal", paypalRoutes);
+app.post("/pay", createOrder);
 
-app.use("/", (req, res) => {
-  res.send(`<h1>Hello World</h1>`);
+app.get("/complete-order", async (req, res) => {
+  try {
+    await capturePayment(req.query.token);
+
+    res.send("Course purchased successfully");
+  } catch (error) {
+    res.send("Error: " + error);
+  }
+});
+
+app.get("/cancel-order", (req, res) => {
+  res.redirect("/");
 });
 
 // Start server
