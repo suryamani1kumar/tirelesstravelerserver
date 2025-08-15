@@ -5,8 +5,6 @@ import connectDB from "./db.js";
 import cors from "cors";
 import userLogin from "./routes/login.js";
 import { createOrder } from "./controller/paypal.js";
-import { fileURLToPath } from "url";
-import path from "path";
 import sign from "./routes/sign.js"
 
 // Load env variables
@@ -15,8 +13,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT;
 connectDB();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(express.json());
@@ -28,21 +24,10 @@ app.use(
   })
 );
 
-app.use(express.static(path.join(__dirname, "public")));
 // Routes
-app.get("/protected", (req, res) => {
-  const filePath = path.join(
-    __dirname,
-    "public",
-    "flip-book",
-    "the-tireless-traveler-ebook.html"
-  );
 
-  res.sendFile(filePath);
-});
 app.use("/api", userLogin);
 app.use("/api", sign);
-
 app.post("/pay", createOrder);
 
 app.get("/complete-order", async (req, res) => {
