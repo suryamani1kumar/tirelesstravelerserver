@@ -4,8 +4,8 @@ import cookieParser from "cookie-parser";
 import connectDB from "./db.js";
 import cors from "cors";
 import userLogin from "./routes/login.js";
-import { createOrder } from "./controller/paypal.js";
-import sign from "./routes/sign.js"
+import sign from "./routes/sign.js";
+import createorder from "./routes/paypal.js";
 
 // Load env variables
 dotenv.config();
@@ -28,9 +28,9 @@ app.use(
 
 app.use("/api", userLogin);
 app.use("/api", sign);
-app.post("/pay", createOrder);
+app.post("/api", createorder);
 
-app.get("/complete-order", async (req, res) => {
+app.get("/complete-payment", async (req, res) => {
   try {
     await capturePayment(req.query.token);
 
@@ -40,7 +40,7 @@ app.get("/complete-order", async (req, res) => {
   }
 });
 
-app.get("/cancel-order", (req, res) => {
+app.get("/cancel-payment", (req, res) => {
   res.redirect("/");
 });
 

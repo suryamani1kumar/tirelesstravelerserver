@@ -1,12 +1,9 @@
-import { Router } from 'express';
+import { Router } from "express";
+import {createOrder} from "../controller/paypal.js"
 
 const router = Router();
 
 // Example route
-router.post('/v1/oauth2/token', (req, res) => {
-  res.send('User route root');
-});
-
-
+router.post("/createorder", createOrder);
 
 export default router;

@@ -61,8 +61,8 @@ export const createOrder = async (req, res) => {
       ],
 
       application_context: {
-        return_url: process.env.WEB_BASE_URL + "/complete-order",
-        cancel_url: process.env.WEB_BASE_URL + "/cancel-order",
+        return_url: process.env.WEB_BASE_URL + "/complete-payment",
+        cancel_url: process.env.WEB_BASE_URL + "/cancel-payment",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
         brand_name: "tirelesstraveler.net",
@@ -70,7 +70,7 @@ export const createOrder = async (req, res) => {
     }),
   });
   const orderId = response.data.id;
-  return res.status(200).json({orderId})
+  return res.status(200).json({ orderId });
 };
 
 export const capturePayment = async (orderId) => {

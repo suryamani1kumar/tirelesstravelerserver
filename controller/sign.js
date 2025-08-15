@@ -1,22 +1,22 @@
 import bcrypt from "bcrypt";
-import User from "../schema/sign.js"
+import customer from "../schema/sign.js"
 
 export const signUp = async (req, res) => {
   try {
     const { fullname, email, password } = req.body;
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await customer.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
     // Create user
-    const user = await User.create({ fullname, email, password });
+    const user = await customer.create({ fullname, email, password });
 
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message: "customer registered successfully",
       user: {
         id: user._id,
         fullname: user.fullname,
@@ -34,7 +34,7 @@ export const signIn = async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ email }).select("+password");
+    const user = await customer.findOne({ email }).select("+password");
     if (!user) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
