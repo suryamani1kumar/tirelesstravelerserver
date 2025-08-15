@@ -5,7 +5,7 @@ import connectDB from "./db.js";
 import cors from "cors";
 import userLogin from "./routes/login.js";
 import sign from "./routes/sign.js";
-import createorder from "./routes/paypal.js";
+import order from "./routes/paypal.js";
 
 // Load env variables
 dotenv.config();
@@ -28,21 +28,7 @@ app.use(
 
 app.use("/api", userLogin);
 app.use("/api", sign);
-app.post("/api", createorder);
-
-app.get("/complete-payment", async (req, res) => {
-  try {
-    await capturePayment(req.query.token);
-
-    res.send("Course purchased successfully");
-  } catch (error) {
-    res.send("Error: " + error);
-  }
-});
-
-app.get("/cancel-payment", (req, res) => {
-  res.redirect("/");
-});
+app.use("/api", order);
 
 // Start server
 app.listen(PORT, () => {

@@ -73,17 +73,21 @@ export const createOrder = async (req, res) => {
   return res.status(200).json({ orderId });
 };
 
-export const capturePayment = async (orderId) => {
+export const capturePayment = async (req, res) => {
   const accessToken = await getAccessToken();
-
+  const { paymentId } = req.params;
   const response = await axios({
-    url: process.env.PAYPAL_BASE_URL + `/v2/checkout/orders/${orderId}/capture`,
+    url: `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders/${paymentId}/capture`,
     method: "post",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + accessToken,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
-  return response.data;
+  const paymentData = response.data;
+  if (paymentData.status !== "COMPLETED") {
+    return res.status(400).json({ err: "Paypal payment incomplete or fail" });
+  }
+  return res.status(200).json({ paymentData });
 };
