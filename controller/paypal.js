@@ -1,4 +1,5 @@
 import axios from "axios";
+// import { paypalOrder } from "../utils/utils.js";
 
 export const getAccessToken = async (req, res) => {
   try {
@@ -23,7 +24,11 @@ export const getAccessToken = async (req, res) => {
 };
 
 export const createOrder = async (req, res) => {
+  const product = req.body;
+  // const payProduct = paypalOrder(product);
+
   const accessToken = await getAccessToken();
+
   const response = await axios({
     url: process.env.PAYPAL_BASE_URL + "/v2/checkout/orders",
     method: "post",
@@ -37,23 +42,24 @@ export const createOrder = async (req, res) => {
         {
           items: [
             {
-              name: "Node.js Complete Course",
-              description: "Node.js Complete Course with Express and MongoDB",
+              name: "THE TIRELESS TRAVELER",
+              description:
+                "Explore Arvi’s publication journey with breathtaking photography and storytelling.",
               quantity: 1,
               unit_amount: {
                 currency_code: "USD",
-                value: "1.00",
+                value: "35.00",
               },
             },
           ],
 
           amount: {
             currency_code: "USD",
-            value: "1.00",
+            value: "35.00",
             breakdown: {
               item_total: {
                 currency_code: "USD",
-                value: "1.00",
+                value: "35.00",
               },
             },
           },
