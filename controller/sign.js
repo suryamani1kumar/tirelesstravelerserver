@@ -1,5 +1,8 @@
 import bcrypt from "bcrypt";
-import customer from "../schema/sign.js"
+import customer from "../schema/sign.js";
+import { generateTokens } from "../utils/utils.js";
+const time = "15m";
+const refreshTime = "6d";
 
 export const signUp = async (req, res) => {
   try {
@@ -28,7 +31,6 @@ export const signUp = async (req, res) => {
   }
 };
 
-
 export const signIn = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -45,6 +47,29 @@ export const signIn = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    const { accessToken, refreshToken } = generateTokens(
+      user,
+      time,
+      refreshTime
+    );
+
+    user.accessToken = accessToken;
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 6 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({
       success: true,
@@ -56,6 +81,7 @@ export const signIn = async (req, res) => {
       },
     });
   } catch (error) {
+    console.log("error", error);
     res.status(500).json({ message: error.message || "Server Error" });
   }
 };

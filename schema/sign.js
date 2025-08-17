@@ -22,6 +22,12 @@ const userSchema = new mongoose.Schema(
         "Please provide a valid email address",
       ],
     },
+    accessToken: {
+      type: String,
+    },
+    refreshToken: {
+      type: String,
+    },
 
     password: {
       type: String,
