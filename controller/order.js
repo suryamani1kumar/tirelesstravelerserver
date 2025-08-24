@@ -22,8 +22,11 @@ export const getAccessToken = async (req, res) => {
     res.status(500).json({ error: "Failed to get PayPal access token" });
   }
 };
-
 export const createOrder = async (req, res) => {
+  
+};
+
+export const createPaypalOrder = async (req, res) => {
   const product = req.body;
   // const payProduct = paypalOrder(product);
 

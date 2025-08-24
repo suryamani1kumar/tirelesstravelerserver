@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 const time = "7d";
 const refreshTime = "15d";
 
-export const signUp = async (req, res) => {
+export const customerRegister = async (req, res) => {
   try {
     const { fullname, email, password } = req.body;
 
@@ -32,20 +32,21 @@ export const signUp = async (req, res) => {
   }
 };
 
-export const signIn = async (req, res) => {
+export const customerLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     // Find user
     const user = await customer.findOne({ email }).select("+password");
+    console.log("user", user);
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid password" });
     }
 
     const { accessToken, refreshToken } = generateTokens(
@@ -87,7 +88,8 @@ export const signIn = async (req, res) => {
   }
 };
 
-export const signAuth = async (req, res) => {
+export const customerAuth = async (req, res) => {
+
   const accessToken = req.cookies.accessToken;
   const refreshToken = req.cookies.refreshToken;
 
@@ -95,8 +97,15 @@ export const signAuth = async (req, res) => {
     // 1. Try verifying access token
     if (accessToken) {
       try {
-        jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-        return res.json({ loggedIn: true });
+        const getToken = jwt.verify(
+          accessToken,
+          process.env.ACCESS_TOKEN_SECRET
+        );
+
+        const user = await customer.findById(getToken.id);
+
+        return res.json({ loggedIn: true, customer: user });
+
       } catch (err) {
         console.log("Access token expired or invalid:", err.message);
       }
@@ -118,6 +127,7 @@ export const signAuth = async (req, res) => {
 
       // Find user in DB
       const user = await customer.findById(decodedRefresh.id);
+
       console.log("user", user);
       if (!user) {
         return res.status(401).json({
@@ -135,15 +145,16 @@ export const signAuth = async (req, res) => {
       // Set new access token cookie
       res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
         sameSite: "strict",
         maxAge: 15 * 60 * 1000, // 15 mins
       });
 
       return res.json({
         loggedIn: true,
-        user: { id: user._id, email: user.email },
+        customer: user,
       });
+      
     } catch (err) {
       // Refresh token also expired or invalid
       console.log("Refresh token expired/invalid:", err.message);

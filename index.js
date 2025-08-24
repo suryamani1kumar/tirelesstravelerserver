@@ -4,8 +4,8 @@ import cookieParser from "cookie-parser";
 import connectDB from "./db.js";
 import cors from "cors";
 import userLogin from "./routes/login.js";
-import sign from "./routes/sign.js";
-import order from "./routes/paypal.js";
+import customer from "./routes/customer.js";
+import order from "./routes/order.js";
 
 // Load env variables
 dotenv.config();
@@ -26,9 +26,7 @@ app.use(
 
 // Routes
 
-app.use("/api", userLogin);
-app.use("/api", sign);
-app.use("/api", order);
+app.use("/api", [userLogin, customer, order]);
 
 // Start server
 app.listen(PORT, () => {
