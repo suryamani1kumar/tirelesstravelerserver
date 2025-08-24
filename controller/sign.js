@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
 import customer from "../schema/sign.js";
 import { generateTokens } from "../utils/utils.js";
-const time = "15m";
-const refreshTime = "6d";
+import jwt from "jsonwebtoken";
+const time = "7d";
+const refreshTime = "15d";
 
 export const signUp = async (req, res) => {
   try {
@@ -61,14 +62,14 @@ export const signIn = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: "strict",
-      maxAge: 6 * 24 * 60 * 60 * 1000,
+      maxAge: 15 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({
@@ -83,5 +84,81 @@ export const signIn = async (req, res) => {
   } catch (error) {
     console.log("error", error);
     res.status(500).json({ message: error.message || "Server Error" });
+  }
+};
+
+export const signAuth = async (req, res) => {
+  const accessToken = req.cookies.accessToken;
+  const refreshToken = req.cookies.refreshToken;
+
+  try {
+    // 1. Try verifying access token
+    if (accessToken) {
+      try {
+        jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+        return res.json({ loggedIn: true });
+      } catch (err) {
+        console.log("Access token expired or invalid:", err.message);
+      }
+    }
+
+    // 2. Check refresh token
+    if (!refreshToken) {
+      return res.status(401).json({
+        loggedIn: false,
+        message: "No tokens provided, please log in",
+      });
+    }
+
+    try {
+      const decodedRefresh = jwt.verify(
+        refreshToken,
+        process.env.REFRESH_TOKEN_SECRET
+      );
+
+      // Find user in DB
+      const user = await customer.findById(decodedRefresh.id);
+      console.log("user", user);
+      if (!user) {
+        return res.status(401).json({
+          loggedIn: false,
+          message: "User not found, please log in again",
+        });
+      }
+
+      // Generate new access token
+      const { accessToken: newAccessToken } = generateTokens({
+        id: user._id,
+        email: user.email,
+      });
+
+      // Set new access token cookie
+      res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000, // 15 mins
+      });
+
+      return res.json({
+        loggedIn: true,
+        user: { id: user._id, email: user.email },
+      });
+    } catch (err) {
+      // Refresh token also expired or invalid
+      console.log("Refresh token expired/invalid:", err.message);
+
+      // Clear cookies
+      res.clearCookie("accessToken");
+      res.clearCookie("refreshToken");
+
+      return res.status(401).json({
+        loggedIn: false,
+        message: "Session expired, please log in again",
+      });
+    }
+  } catch (err) {
+    console.log("Auth error:", err.message);
+    return res.status(401).json({ loggedIn: false, message: "Unauthorized" });
   }
 };
