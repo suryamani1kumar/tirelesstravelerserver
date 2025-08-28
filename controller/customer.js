@@ -1,9 +1,6 @@
 import bcrypt from "bcrypt";
 import customer from "../schema/sign.js";
-import { generateTokens } from "../utils/utils.js";
-import jwt from "jsonwebtoken";
-const time = "7d";
-const refreshTime = "15d";
+import { generateTokens, verifyCustomer } from "../utils/utils.js";
 
 export const customerRegister = async (req, res) => {
   try {
@@ -51,8 +48,8 @@ export const customerLogin = async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(
       user,
-      time,
-      refreshTime
+      process.env.ACCESS_TOKEN_TIME,
+      process.env.REFRESH_TOKEN_TIME
     );
 
     user.accessToken = accessToken;
@@ -89,87 +86,41 @@ export const customerLogin = async (req, res) => {
 };
 
 export const customerAuth = async (req, res) => {
+  const user = await verifyCustomer(req, res);
 
-  const accessToken = req.cookies.accessToken;
-  const refreshToken = req.cookies.refreshToken;
-
-  try {
-    // 1. Try verifying access token
-    if (accessToken) {
-      try {
-        const getToken = jwt.verify(
-          accessToken,
-          process.env.ACCESS_TOKEN_SECRET
-        );
-
-        const user = await customer.findById(getToken.id);
-
-        return res.json({ loggedIn: true, customer: user });
-
-      } catch (err) {
-        console.log("Access token expired or invalid:", err.message);
-      }
-    }
-
-    // 2. Check refresh token
-    if (!refreshToken) {
-      return res.status(401).json({
-        loggedIn: false,
-        message: "No tokens provided, please log in",
-      });
-    }
-
-    try {
-      const decodedRefresh = jwt.verify(
-        refreshToken,
-        process.env.REFRESH_TOKEN_SECRET
-      );
-
-      // Find user in DB
-      const user = await customer.findById(decodedRefresh.id);
-
-      console.log("user", user);
-      if (!user) {
-        return res.status(401).json({
-          loggedIn: false,
-          message: "User not found, please log in again",
-        });
-      }
-
-      // Generate new access token
-      const { accessToken: newAccessToken } = generateTokens({
-        id: user._id,
-        email: user.email,
-      });
-
-      // Set new access token cookie
-      res.cookie("accessToken", newAccessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-        maxAge: 15 * 60 * 1000, // 15 mins
-      });
-
-      return res.json({
-        loggedIn: true,
-        customer: user,
-      });
-      
-    } catch (err) {
-      // Refresh token also expired or invalid
-      console.log("Refresh token expired/invalid:", err.message);
-
-      // Clear cookies
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-
-      return res.status(401).json({
-        loggedIn: false,
-        message: "Session expired, please log in again",
-      });
-    }
-  } catch (err) {
-    console.log("Auth error:", err.message);
-    return res.status(401).json({ loggedIn: false, message: "Unauthorized" });
+  if (!user) {
+    return res.status(401).json({
+      loggedIn: false,
+      message: "Unauthorized",
+    });
   }
+
+  return res.json({
+    loggedIn: true,
+    customer: user,
+  });
+
 };
+
+export const GetCustomer = async () => {
+  try {
+    const id = req.customer._id
+
+    const user = await customer.findOne(
+      { _id: id },
+    ).select("-refreshToken -accessToken");;
+
+    if (!user) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    return res.status(201).json({
+      message: "Customer fetch successfully",
+      data: user
+    });
+
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}

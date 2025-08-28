@@ -1,5 +1,6 @@
 import axios from "axios";
 // import { paypalOrder } from "../utils/utils.js";
+import customer from "../schema/sign.js";
 
 export const getAccessToken = async (req, res) => {
   try {
@@ -22,8 +23,54 @@ export const getAccessToken = async (req, res) => {
     res.status(500).json({ error: "Failed to get PayPal access token" });
   }
 };
+
 export const createOrder = async (req, res) => {
-  
+  try {
+    const { product } = req.body;
+    const id = req.customer._id
+    // Validate input
+    if (!product) {
+      return res.status(400).json({ message: "User ID and product are required" });
+    }
+
+    const user = await customer.findOneAndUpdate(
+      { _id: id },
+      { $push: { products: product } },
+      { new: true } // return updated document
+    );
+
+    return res.status(201).json({
+      message: "Order created successfully",
+      data: user
+    });
+
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getOrderSave = async (req, res) => {
+  try {
+    const id = req.customer._id
+
+    const user = await customer.findOne(
+      { _id: id },
+    ).select("-refreshToken -accessToken");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(201).json({
+      message: "Order fetch successfully",
+      data: user
+    });
+
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const createPaypalOrder = async (req, res) => {
