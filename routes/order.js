@@ -3,7 +3,7 @@ import {
   capturePayment,
   createOrder,
   createPaypalOrder,
-  getOrderSave,
+  getOrder,
 } from "../controller/order.js";
 import { customerAuthMiddleWare } from "../middleware/customerAuth.js";
 
@@ -11,8 +11,8 @@ const router = Router();
 
 // Example route
 router.post("/createOrder", customerAuthMiddleWare, createOrder);
-router.get("/getOrder", customerAuthMiddleWare, getOrderSave);
+router.get("/getOrder", customerAuthMiddleWare, getOrder);
 router.post("/createPaypalOrder", createPaypalOrder);
-router.get("/captaurepayment/:paymentId", capturePayment);
+router.post("/captaurepayment/:paymentId", capturePayment);
 
 export default router;

@@ -102,7 +102,7 @@ export const customerAuth = async (req, res) => {
 
 };
 
-export const GetCustomer = async () => {
+export const GetCustomer = async (req, res) => {
   try {
     const id = req.customer._id
 
@@ -114,7 +114,7 @@ export const GetCustomer = async () => {
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       message: "Customer fetch successfully",
       data: user
     });

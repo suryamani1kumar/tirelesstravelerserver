@@ -1,6 +1,6 @@
 import axios from "axios";
-// import { paypalOrder } from "../utils/utils.js";
 import customer from "../schema/sign.js";
+import Order from "../schema/order.js";
 
 export const getAccessToken = async (req, res) => {
   try {
@@ -26,58 +26,74 @@ export const getAccessToken = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { product } = req.body;
-    const id = req.customer._id
-    // Validate input
-    if (!product) {
-      return res.status(400).json({ message: "User ID and product are required" });
+    const { products } = req.body;
+    const userId = req.customer._id; // from JWT auth
+
+    if (!products || products.length === 0) {
+      return res.status(400).json({ message: "Products are required" });
     }
 
-    const user = await customer.findOneAndUpdate(
-      { _id: id },
-      { $push: { products: product } },
-      { new: true } // return updated document
+    // Calculate total
+    const totalAmount = products.reduce(
+      (sum, item) => sum + item.price * (item.quantity || 1),
+      0
     );
 
-    return res.status(201).json({
-      message: "Order created successfully",
-      data: user
+    const newOrder = new Order({
+      userId,
+      products,
+      totalAmount,
     });
 
+    await newOrder.save();
+
+    res.status(201).json({
+      message: "Order created successfully",
+      data: newOrder._id,
+    });
   } catch (error) {
     console.error("Error creating order:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-export const getOrderSave = async (req, res) => {
+export const getOrder = async (req, res) => {
   try {
-    const id = req.customer._id
+    const { orderId } = req.query;
 
-    const user = await customer.findOne(
-      { _id: id },
-    ).select("-refreshToken -accessToken");
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    return res.status(201).json({
-      message: "Order fetch successfully",
-      data: user
+    // Fetch all orders for this user
+    const orders = await Order.findOne({ _id: orderId }).sort({
+      createdAt: -1,
     });
 
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ error: "No orders found" });
+    }
+
+    return res.status(200).json({
+      message: "Orders fetched successfully",
+      data: orders,
+    });
   } catch (error) {
-    console.error("Error creating order:", error);
+    console.error("Error fetching orders:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 export const createPaypalOrder = async (req, res) => {
-  const product = req.body;
-  // const payProduct = paypalOrder(product);
+  const { items, totalAmount, currency } = req.body;
 
   const accessToken = await getAccessToken();
+
+  const paypalItems = items.map((item) => ({
+    name: "THE TIRELESS TRAVELER",
+    description: item.description,
+    quantity: item.quantity,
+    unit_amount: {
+      currency_code: currency,
+      value: item.price.toFixed(2),
+    },
+  }));
 
   const response = await axios({
     url: process.env.PAYPAL_BASE_URL + "/v2/checkout/orders",
@@ -90,26 +106,14 @@ export const createPaypalOrder = async (req, res) => {
       intent: "CAPTURE",
       purchase_units: [
         {
-          items: [
-            {
-              name: "THE TIRELESS TRAVELER",
-              description:
-                "Explore Arvi’s publication journey with breathtaking photography and storytelling.",
-              quantity: 1,
-              unit_amount: {
-                currency_code: "USD",
-                value: "35.00",
-              },
-            },
-          ],
-
+          items: paypalItems,
           amount: {
-            currency_code: "USD",
-            value: "35.00",
+            currency_code: currency,
+            value: totalAmount,
             breakdown: {
               item_total: {
-                currency_code: "USD",
-                value: "35.00",
+                currency_code: currency,
+                value: totalAmount,
               },
             },
           },
@@ -130,20 +134,43 @@ export const createPaypalOrder = async (req, res) => {
 };
 
 export const capturePayment = async (req, res) => {
-  const accessToken = await getAccessToken();
-  const { paymentId } = req.params;
-  const response = await axios({
-    url: `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders/${paymentId}/capture`,
-    method: "post",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  try {
+    const accessToken = await getAccessToken();
+    const { paymentId } = req.params;
+    const { orderId } = req.body;
+    const response = await axios({
+      url: `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders/${paymentId}/capture`,
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
-  const paymentData = response.data;
-  if (paymentData.status !== "COMPLETED") {
-    return res.status(400).json({ err: "Paypal payment incomplete or fail" });
+    const paymentData = response.data;
+    if (paymentData.status !== "COMPLETED") {
+      return res.status(400).json({ err: "Paypal payment incomplete or fail" });
+    }
+    // Update your Order in MongoDB
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: orderId }, // you should send your internal orderId from frontend
+      {
+        payment: paymentData,
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ error: "Order not found in database" });
+    }
+
+    return res.status(200).json({
+      message: "Payment captured and order updated successfully",
+      order: updatedOrder,
+      paypalResponse: paymentData,
+    });
+  } catch (error) {
+    console.error("Error capturing PayPal payment:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
-  return res.status(200).json({ paymentData });
 };
