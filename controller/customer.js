@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import customer from "../schema/sign.js";
 import { generateTokens, verifyCustomer } from "../utils/utils.js";
+import Order from "../schema/order.js";
 
 export const customerRegister = async (req, res) => {
   try {
@@ -99,28 +100,30 @@ export const customerAuth = async (req, res) => {
     loggedIn: true,
     customer: user,
   });
-
 };
 
 export const GetCustomer = async (req, res) => {
   try {
-    const id = req.customer._id
+    const id = req.customer._id;
 
-    const user = await customer.findOne(
-      { _id: id },
-    ).select("-refreshToken -accessToken");;
-
+    const user = await customer
+      .findOne({ _id: id })
+      .select("-refreshToken -accessToken");
+    
+    const orders = await Order.find({ userId: id }).sort({
+      createdAt: -1,
+    });
+    
     if (!user) {
       return res.status(404).json({ error: "Customer not found" });
     }
 
     return res.status(200).json({
       message: "Customer fetch successfully",
-      data: user
+      data: { user: user, orders: orders || [] },
     });
-
   } catch (error) {
     console.error("Error creating order:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
-}
+};

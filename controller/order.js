@@ -1,5 +1,4 @@
 import axios from "axios";
-import customer from "../schema/sign.js";
 import Order from "../schema/order.js";
 
 export const getAccessToken = async (req, res) => {
@@ -64,7 +63,7 @@ export const getOrder = async (req, res) => {
     // Fetch all orders for this user
     const orders = await Order.findOne({ _id: orderId }).sort({
       createdAt: -1,
-    });
+    }).select("-payment.links -payment.breakdown");;
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ error: "No orders found" });
@@ -121,8 +120,8 @@ export const createPaypalOrder = async (req, res) => {
       ],
 
       application_context: {
-        return_url: process.env.WEB_BASE_URL + "/complete-payment",
-        cancel_url: process.env.WEB_BASE_URL + "/cancel-payment",
+        return_url: `${process.env.WEB_BASE_URL}/complete-payment`,
+        cancel_url: `${process.env.WEB_BASE_URL}/cancel-payment`,
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
         brand_name: "tirelesstraveler.net",
@@ -138,6 +137,7 @@ export const capturePayment = async (req, res) => {
     const accessToken = await getAccessToken();
     const { paymentId } = req.params;
     const { orderId } = req.body;
+    
     const response = await axios({
       url: `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders/${paymentId}/capture`,
       method: "post",
@@ -151,11 +151,39 @@ export const capturePayment = async (req, res) => {
     if (paymentData.status !== "COMPLETED") {
       return res.status(400).json({ err: "Paypal payment incomplete or fail" });
     }
+
+    const capture = paymentData.purchase_units[0].payments.captures[0];
+    const paymentDetails = {
+      paypalOrderId: paymentData.id, // PayPal Order ID
+      captureId: capture.id,
+      status: capture.status,
+      amount: {
+        value: capture.amount.value,
+        currency: capture.amount.currency_code,
+      },
+      breakdown: {
+        gross: capture.seller_receivable_breakdown.gross_amount.value,
+        fee: capture.seller_receivable_breakdown.paypal_fee.value,
+        net: capture.seller_receivable_breakdown.net_amount.value,
+      },
+      payer: {
+        payerId: paymentData.payer.payer_id,
+        email: paymentData.payer.email_address,
+        name: `${paymentData.payer.name.given_name} ${paymentData.payer.name.surname}`,
+        country: paymentData.payer.address.country_code,
+      },
+      links: {
+        captureUrl: capture.links.find((l) => l.rel === "self")?.href,
+        refundUrl: capture.links.find((l) => l.rel === "refund")?.href,
+      },
+    };
+
     // Update your Order in MongoDB
     const updatedOrder = await Order.findOneAndUpdate(
       { _id: orderId }, // you should send your internal orderId from frontend
       {
-        payment: paymentData,
+        payment: paymentDetails,
+        paymentStatus: paymentData.status,
       },
       { new: true }
     );
