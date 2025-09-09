@@ -109,11 +109,14 @@ export const GetCustomer = async (req, res) => {
     const user = await customer
       .findOne({ _id: id })
       .select("-refreshToken -accessToken");
-    
-    const orders = await Order.find({ userId: id }).sort({
+
+    const orders = await Order.find({
+      userId: id,
+      paymentStatus: "COMPLETED",
+    }).sort({
       createdAt: -1,
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: "Customer not found" });
     }

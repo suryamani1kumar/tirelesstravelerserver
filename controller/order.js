@@ -61,9 +61,33 @@ export const getOrder = async (req, res) => {
     const { orderId } = req.query;
 
     // Fetch all orders for this user
-    const orders = await Order.findOne({ _id: orderId }).sort({
+    const orders = await Order.findOne({
+      _id: orderId,
+    })
+      .sort({
+        createdAt: -1,
+      })
+      .select("-payment.links -payment.breakdown");
+
+      if (!orders || orders.length === 0) {
+      return res.status(404).json({ error: "No orders found" });
+    }
+
+    return res.status(200).json({
+      message: "Orders fetched successfully",
+      data: orders,
+    });
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getAllOrder = async (req, res) => {
+  try {
+    let orders = await Order.find({ paymentStatus: "COMPLETED" }).sort({
       createdAt: -1,
-    }).select("-payment.links -payment.breakdown");;
+    });
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ error: "No orders found" });
@@ -137,7 +161,7 @@ export const capturePayment = async (req, res) => {
     const accessToken = await getAccessToken();
     const { paymentId } = req.params;
     const { orderId } = req.body;
-    
+
     const response = await axios({
       url: `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders/${paymentId}/capture`,
       method: "post",
